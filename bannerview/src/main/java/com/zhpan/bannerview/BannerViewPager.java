@@ -56,11 +56,15 @@ import static com.zhpan.bannerview.utils.BannerUtils.getOriginalPosition;
 @SuppressWarnings({ "unused", "UnusedReturnValue" })
 public class BannerViewPager<T> extends RelativeLayout implements LifecycleObserver {
 
-  private int currentPosition;
+  private int currentPosition = 0;
+
+  private int scrollOffset = 1;
 
   private boolean isCustomIndicator;
 
   private boolean isLooping;
+
+  private boolean isUpdating = false;
 
   private OnPageClickListener mOnPageClickListener;
 
@@ -285,7 +289,7 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
 
   private void handlePosition() {
     if (mBannerPagerAdapter != null && mBannerPagerAdapter.getListSize() > 1 && isAutoPlay()) {
-      mViewPager.setCurrentItem(mViewPager.getCurrentItem() + 1);
+      mViewPager.setCurrentItem(mViewPager.getCurrentItem() + scrollOffset);
       mHandler.postDelayed(mRunnable, getInterval());
     }
   }
@@ -380,11 +384,10 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
     if (bannerOptions.getScrollDuration() != 0) {
       ReflectLayoutManager.reflectLayoutManager(mViewPager, bannerOptions.getScrollDuration());
     }
-    currentPosition = 0;
     mBannerPagerAdapter.setCanLoop(bannerOptions.isCanLoop());
     mBannerPagerAdapter.setPageClickListener(mOnPageClickListener);
     mViewPager.setAdapter(mBannerPagerAdapter);
-    if (isCanLoopSafely()) {
+    if (isCanLoopSafely() && !isUpdating) {
       mViewPager.setCurrentItem(getOriginalPosition(list.size()), false);
     }
     mViewPager.unregisterOnPageChangeCallback(mOnPageChangeCallback);
@@ -425,8 +428,7 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
 
   private void resetCurrentItem(int item) {
     if (isCanLoopSafely()) {
-      mViewPager.setCurrentItem(getOriginalPosition(mBannerPagerAdapter.getListSize()) + item,
-          false);
+      mViewPager.setCurrentItem(getOriginalPosition(mBannerPagerAdapter.getListSize()) + item, false);
     } else {
       mViewPager.setCurrentItem(item, false);
     }
@@ -442,6 +444,7 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
   private static final String KEY_SUPER_STATE = "SUPER_STATE";
   private static final String KEY_CURRENT_POSITION = "CURRENT_POSITION";
   private static final String KEY_IS_CUSTOM_INDICATOR = "IS_CUSTOM_INDICATOR";
+  private static final String KEY_CURRENT_OFFSET = "CURRENT_OFFSET";
 
   private int getInterval() {
     return mBannerManager.getBannerOptions().getInterval();
@@ -465,6 +468,7 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
     Bundle bundle = new Bundle();
     bundle.putParcelable(KEY_SUPER_STATE, superState);
     bundle.putInt(KEY_CURRENT_POSITION, currentPosition);
+    bundle.putInt(KEY_CURRENT_OFFSET, scrollOffset);
     bundle.putBoolean(KEY_IS_CUSTOM_INDICATOR, isCustomIndicator);
     return bundle;
   }
@@ -475,6 +479,7 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
     Parcelable superState = bundle.getParcelable(KEY_SUPER_STATE);
     super.onRestoreInstanceState(superState);
     currentPosition = bundle.getInt(KEY_CURRENT_POSITION);
+    scrollOffset = bundle.getInt(KEY_CURRENT_OFFSET);
     isCustomIndicator = bundle.getBoolean(KEY_IS_CUSTOM_INDICATOR);
     setCurrentItem(currentPosition, false);
   }
@@ -883,6 +888,28 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
     });
   }
 
+  /**
+   * Refresh data.
+   * Confirm the {@link #create()} or {@link #create(List)} method has been called,
+   * else the data won't be shown.
+   *
+   * Fix #209 如果BVP没有 attach 到 Window 上的时候刷新 ViewPager2 就会导致
+   * ViewPager2 的 currentItem 被 reset 为 0，故出现 BVP 的 item 快速滚动问题
+   * 为了避免这一问题，只能在已经attach 到 Window 上的时候去刷新数据。
+   */
+  public void updateData(List<? extends T> list) {
+    post(() -> {
+      if (isAttachedToWindow() && list != null && mBannerPagerAdapter != null) {
+        isUpdating = true;
+        mBannerPagerAdapter.setData(list);
+        mBannerPagerAdapter.notifyDataSetChanged();
+        initBannerData();
+        resetCurrentItem(getCurrentItem());
+        refreshIndicator(list);
+      }
+    });
+  }
+
   public void addData(List<? extends T> list) {
     if (isAttachedToWindow() && list != null && mBannerPagerAdapter != null) {
       List<T> data = mBannerPagerAdapter.getData();
@@ -1153,5 +1180,16 @@ public class BannerViewPager<T> extends RelativeLayout implements LifecycleObser
       int bottomLeftRadius,
       int bottomRightRadius) {
     return setRoundCorner(topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
+  }
+
+  /**
+   * 自定义方法，设置每次滑动间隔数
+   *
+   * @param offset
+   * @return
+   */
+  public BannerViewPager<T> setScrollOffset(int offset) {
+    this.scrollOffset = offset;
+    return this;
   }
 }
