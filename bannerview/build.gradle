@@ -1,6 +1,8 @@
 apply plugin: 'com.android.library'
-apply plugin: 'com.github.dcendents.android-maven'
 apply plugin: 'kotlin-android'
+apply plugin: 'maven-publish'
+apply plugin: 'signing'
+
 android {
     compileSdkVersion 28
 
@@ -16,8 +18,83 @@ android {
     }
 }
 
+//生成源码jar包task，type表示继承Jar打包任务。
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    archiveClassifier.set("sources")
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                // Applies the component for the release build variant.
+                from components.release
+
+                // You can then customize attributes of the publication as shown below.
+                groupId = group
+                artifactId = artifact
+                version = versions
+
+                pom {
+                    name = "banner"
+                    packaging 'aar'
+                    description = "基于BannerViewPager改动"
+                    url = 'https://github.com/china-mobile2008/OSSRH-79422'
+
+                    scm {
+                        connection = 'https://github.com/china-mobile2008/OSSRH-79422/'
+                        developerConnection = 'scm:https://github.com/china-mobile2008/OSSRH-79422.git'
+                        url = 'https://github.com/china-mobile2008/OSSRH-79422/'
+                    }
+
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = 'china-mobile2008'
+                            name = 'china-mobile2008'
+                            email = 'china-mobile2008@sonatype.com'
+                        }
+                    }
+                }
+            }
+            debug(MavenPublication) {
+                // Applies the component for the debug build variant.
+                from components.debug
+
+                groupId = group
+                artifactId = artifact
+                version = versions
+            }
+        }
+
+        repositories {
+            maven {
+                name = "banner"
+                def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+                def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                credentials {
+                    username = ossrhUsername
+                    password = ossrhPassword
+                }
+            }
+        }
+    }
+
+    signing {
+        sign publishing.publications.release, publishing.publications.debug
+    }
+}
+
 dependencies {
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
-    api 'com.github.zhpanvip:viewpagerindicator:1.2.1'
+    implementation 'com.github.zhpanvip:viewpagerindicator:1.2.1'
 //    api project(path: ':indicator')
 }
