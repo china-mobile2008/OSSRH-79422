@@ -40,12 +40,12 @@ afterEvaluate {
                     name = "banner"
                     packaging 'aar'
                     description = "基于BannerViewPager改动"
-                    url = 'https://github.com/china-mobile2008/OSSRH-79422'
+                    url = 'https://github.com/china-mobile2008/banner'
 
                     scm {
-                        connection = 'https://github.com/china-mobile2008/OSSRH-79422/'
-                        developerConnection = 'scm:https://github.com/china-mobile2008/OSSRH-79422.git'
-                        url = 'https://github.com/china-mobile2008/OSSRH-79422/'
+                        connection = 'https://github.com/china-mobile2008/banner/'
+                        developerConnection = 'scm:https://github.com/china-mobile2008/banner.git'
+                        url = 'https://github.com/china-mobile2008/banner/'
                     }
 
                     licenses {
